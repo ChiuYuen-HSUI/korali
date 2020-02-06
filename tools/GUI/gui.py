@@ -12,7 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 #from matplotlib.figure import Figure
 import matplotlib.animation as animation # Replot every x seconds.
 from matplotlib import style 
-from mpl_finance import candlestick_ohlc
+#from mpl_finance import candlestick_ohlc
 import urllib
 import json
 import pandas as pd
@@ -122,6 +122,8 @@ element_header = ['First Name','Last Name']
 element_list = ['First','Second']
 movie_index = 2
 movie_count = 1
+
+# Example of data:
 Actors_list = [("Rowan","Atkinson"),("John","Candy"),("Morgan","Freeman"),("James","Garner"),("Cary","Grant"),("Kate","Hudson"),
 ("Jack","Nicholson"),("William","Powell"),("Arnold","Schwarzenegger"),("Tom","Selleck"),("John","Wayne")]
 Movies_list = [[("Bean","1997"),("Mr. Bean's Holiday","2007"),("The Lion King","1994"),("Johnny English","2003"),("Johnny English Reborn","2011"),("Keeping Mum","2005"),("The Black Adder","1982-1983")],
@@ -215,15 +217,6 @@ def LogOut():
     pass
 
 def optionMenuListener():
-    pass
-
-def generate_bill():
-    pass
-
-def billsTV():
-    pass
-
-def print_bill():
     pass
 
 def printExperiment():
