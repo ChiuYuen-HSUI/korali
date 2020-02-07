@@ -772,13 +772,12 @@ class KORALI(tk.Tk): #Inherited tk.tk
         # Which frame shall I show?
         self.frames = {} # Dictionary.
 
-        for F in (StartPage,KORALI_Page): # List of Pages.
 
-            frame = F(container,self) #Pass through container, and self.
-            self.frames[F] = frame 
-            frame.grid(row=0, column=0, sticky='nsew') # Sticky = Strech everything to north,south,e,w..
+        frame = KORALI_Page(container,self) #Pass through container, and self.
+        self.frames[KORALI_Page] = frame 
+        frame.grid(row=0, column=0, sticky='nsew') # Sticky = Strech everything to north,south,e,w..
 
-        self.show_frame(StartPage)
+        self.show_frame(KORALI_Page)
 
         # Done with initializing.
 
@@ -889,7 +888,7 @@ class KORALI_Page(tk.Frame): # Page with Graphs.
         ############ JSON MANIPULATION + CASCADE-TREE ###################
 
         # Import json file into variable data:
-        with open('/home/mark/Escritorio/PYTHON/korali_no_env/experiment.json') as jsonfile:
+        with open('../../source/experiment/experiment.config') as jsonfile:
             data = json.load(jsonfile)
 
         #Experiments = []
@@ -1077,29 +1076,6 @@ class KORALI_Page(tk.Frame): # Page with Graphs.
 
         # **** Status Bar ****
         # Background:
-
-
-class StartPage(tk.Frame): # inherit everything from tk.Frame
-    def __init__(self,parent,controller):
-        tk.Frame.__init__(self,parent) #Parent = KORALI
-        #tk.Frame.config(self,bg='aliceblue') # COLORES
-        label = ttk.Label(self, text ="BETA TEST KORALI, USE AT YOUR OWN RISK, NO PROMISE OF WARRANTY", font = LARGE_FONT) # Running the initialization.
-        # Add it to our windows.
-        label.pack(pady=10,padx=10) # Padding so it looks better, not full.
-
-        # Button to allow the user to navigate through windows:
-        button1 = tk.Button(self, text = "Agree", 
-                                command = lambda: controller.show_frame(KORALI_Page)) # lambda creates a quick thronaway function.
-        button1.config(borderwidth = 2,activeforeground = 'darkcyan')
-        button1.pack()
-
-        button2 = tk.Button(self, text = "Disagree",
-                                command = quit) # If disagree the license terms, quit.
-        button2.config(borderwidth = 2,activeforeground = 'darkcyan')
-        button2.pack()
-
-
-
 
 ## --------------- END OF CLASSES ------------------------    
 ########################################################    
