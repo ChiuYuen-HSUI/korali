@@ -3,6 +3,7 @@
 #include "solver/solver.hpp"
 #include "problem/problem.hpp"
 #include "conduit/distributed/distributed.hpp"
+#include "auxiliar/koraliJson.hpp"
 #include "auxiliar/py2json.hpp"
 #include "auxiliar/fs.hpp"
 #include <chrono>
@@ -98,7 +99,9 @@ void korali::Experiment::saveState()
 
 bool korali::Experiment::loadState()
 {
-  std::string path = _js["Results"]["Path"];
+  std::string path = "_korali_result";
+  if (korali::JsonInterface::isDefined(_js.getJson(), "['Results']['Path'"))
+   std::string path = _js["Results"]["Path"];
   return loadState(path);
 }
 
@@ -127,22 +130,23 @@ bool korali::Experiment::loadState(std::string path)
     auto curJs = nlohmann::json();
     if (korali::JsonInterface::loadJsonFromFile(curJs, filePath.c_str()))
     {
-     size_t runId = js["Internal"]["Run ID"];
-     size_t currentGenRunId = curJs["Internal"]["Run ID"];
+     size_t runId = js["Run ID"];
+     size_t currentGenRunId = curJs["Run ID"];
      if (currentGenRunId == runId)
      {
-      size_t curGen = curJs["Internal"]["Current Generation"];
-      if (curGen > js["Internal"]["Current Generation"])
+      size_t curGen = curJs["Current Generation"];
+      if (curGen > js["Current Generation"])
       {
        js["Solver"] = curJs["Solver"];
-       js["Internal"]["Current Generation"] = curGen;
+       js["Current Generation"] = curGen;
+       _k->_currentGeneration = curGen;
       }
      }
     }
    }
   }
 
-  _js.getJson() = js;
+  _k->_js.getJson() = js;
   return true;
  }
 
@@ -151,26 +155,18 @@ bool korali::Experiment::loadState(std::string path)
 
 korali::Experiment::Experiment()
 {
- _js["Internal"]["Run ID"] = korali::getTimehash();
- _js["Internal"]["Current Generation"] = 0;
- _js["Results"]["Path"] = "_korali_result";
+ _runID = korali::getTimehash();
+ _currentGeneration = 0;
  _k = this;
 }
 
 void korali::Experiment::initialize()
 {
- // Setting Configuration
+ applyModuleDefaults(_js.getJson());
  setConfiguration(_js.getJson());
  getConfiguration(_js.getJson());
-
- _isFinished = false;
  _thread = co_create(10240*sizeof(void*), korali::threadWrapper);
  co_switch(_thread);
-
- // Initializing Modules
- for (size_t i = 0; i < _distributions.size(); i++) _distributions[i]->initialize();
- _problem->initialize();
- _solver->initialize();
 }
 
 nlohmann::json& korali::Experiment::operator[](const std::string& key) { return _js[key]; }

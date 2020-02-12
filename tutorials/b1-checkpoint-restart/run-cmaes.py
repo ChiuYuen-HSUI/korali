@@ -26,6 +26,11 @@ e["Variables"][0]["Name"] = "X"
 e["Variables"][0]["Lower Bound"] = -10.0
 e["Variables"][0]["Upper Bound"] = +10.0
 
+# Setting computational model
+e["Problem"]["Objective Function"] = model
+
+k.run(e)
+
 # Loading previous results, if they exist.
 found = e.loadState()
 
@@ -42,8 +47,5 @@ if (found == True):
  print('------------------------------------------------------')
  e["Solver"]["Termination Criteria"]["Max Generations"] = e["Solver"]["Termination Criteria"]["Max Generations"] + 5
  
-# Setting computational model
-e["Problem"]["Objective Function"] = model
-
 # Running 10 generations
 k.run(e)

@@ -8,18 +8,18 @@ sourceDir = os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/sour
 installFiles = ['libkorali.so', 'Makefile.conf']
 for dirpath, subdirs, files in os.walk(sourceDir):
  for x in files:
-  if (x.endswith(".hpp") or (x.endswith(".h")) or (x.endswith(".json")) or x.endswith(".py")):
+  if (x.endswith(".hpp") or (x.endswith(".h")) or (x.endswith(".config")) or x.endswith(".py")):
    relDir = os.path.relpath(dirpath, sourceDir)
    relFile = os.path.join(relDir, x)
    installFiles.append(relFile)
 
 setup(
     name='Korali',
-    version=1.00,
+    version='1.0.1',
     author='G. Arampatzis, S. Martin, D. Waelchli',
     author_email='martiser@ethz.ch',
-    description='High Performance Library for Uncertainty Quantification',
-    long_description='Webpage: https://www.cse-lab.ethz.ch/korali/',
+    description='High Performance Framework for Uncertainty Quantification and Optimization',
+    url='Webpage: https://www.cse-lab.ethz.ch/korali/',
     packages = ['korali', 'korali.plotter', 'korali.profiler', 'korali.cxx'],
     package_dir = {'korali' : './source/',
                    'korali.plotter' : './tools/plotter', 
@@ -28,5 +28,6 @@ setup(
                   }, 
     include_package_data=True,
     package_data={'korali': installFiles },
-    install_requires=['pybind11', 'numpy', 'matplotlib']
+    install_requires=['pybind11', 'numpy', 'matplotlib'],
+    license='GNU General Public License v3.0'
 )

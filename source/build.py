@@ -28,19 +28,12 @@ def getVariablePath(v):
  for name in v["Name"]: cVarPath += '["' + name + '"]'
  return cVarPath
 
-def getVariableDefault(v):
- return v.get('Default', '')
-
 def getVariableOptions(v):
  options = []
  if ( v.get('Options', '') ):
   for item in v["Options"]:
    options.append(item["Value"])
  return options
-
-def getVariableEnabledDefault(v):
- if ( v.get('Default', '') ): return 'true'
- return 'false'
 
 def getOptionName(path):
  nameList = path.rsplit('/')
@@ -74,20 +67,20 @@ def isLeafModule(path):
  for curDir, relDir, fileNames in os.walk(path):
   if (curDir != path):
    for fileName in fileNames:
-    if '.json' in fileName:
+    if '.config' in fileName:
      return False
  return True
 
 #####################################################################
 
-def consumeValue(base, moduleName, path, varName, varType, varDefault, options):
+def consumeValue(base, moduleName, path, varName, varType, isMandatory, options):
  cString = '\n'
 
  if ('std::function' in varType):
   cString += ' ' + varName + ' = ' + base + path + '.get<size_t>();\n'
   cString += '   korali::JsonInterface::eraseValue(' + base + ', "' + path.replace('"', "'") + '");\n'
   return cString
-
+  
  if ('korali::Sample' in varType):
   cString = ''
   return cString
@@ -110,23 +103,22 @@ def consumeValue(base, moduleName, path, varName, varType, varDefault, options):
   cString += ' korali::JsonInterface::eraseValue(' + base + ', "' + path.replace('"', "'") + '");\n\n'
   return cString
 
+ rhs = base + path + '.get<' + varType + '>();\n'
+ 
  if ('korali::' in varType):
-  if (varDefault): cString = ' if (! korali::JsonInterface::isDefined(' + base + ', "' + path.replace('"', "'") + '[\'Type\']")) ' + base + path + '["Type"] = "' + varDefault + '"; \n'
-  cString += ' ' + varName + ' = dynamic_cast<' + varType + '>(korali::Module::getModule(' + base + path + '));\n'
-  return cString
+  rhs = 'dynamic_cast<' + varType + '>(korali::Module::getModule(' + base + path + '));\n'
 
+ if ('gsl_rng*' in varType):
+  rhs = 'setRange(' + base + path + '.get<std::string>());\n'
+ 
  cString += ' if (korali::JsonInterface::isDefined(' + base + ', "' + path.replace('"', "'") + '"))  \n  { \n'
- cString += '   ' + varName + ' = ' + base + path + '.get<' + varType + '>();\n'
+ cString += '   ' + varName + ' = ' + rhs
  cString += '   korali::JsonInterface::eraseValue(' + base + ', "' + path.replace('"', "'") + '");\n'
  cString += '  }\n'
 
- if (not varDefault == 'Korali Skip Default'):
+ if (isMandatory):
   cString += '  else '
-  if (varDefault == ''):
-   cString += '  korali::logError("No value provided for mandatory setting: ' + path.replace('"', "'") + ' required by ' + moduleName + '.\\n"); \n'
-  else:
-   if ("std::string" in varType): varDefault = '"' + varDefault + '"'
-   cString += varName + ' = ' + varDefault + ';'
+  cString += '  korali::logError("No value provided for mandatory setting: ' + path.replace('"', "'") + ' required by ' + moduleName + '.\\n"); \n'
 
  cString += '\n'
 
@@ -148,6 +140,10 @@ def saveValue(base, path, varName, varType):
 
  if ('korali::Sample' in varType):
   sString = ''
+  return sString
+  
+ if ('gsl_rng*' in varType):
+  sString = '   ' + base + path + ' = getRange(' + varName + ');\n'
   return sString
 
  if ('korali::Variable' in varType):
@@ -174,22 +170,20 @@ def createSetConfiguration(module):
  # Consume Configuration Settings
  if 'Configuration Settings' in module:
   for v in module["Configuration Settings"]:
-   codeString += consumeValue('js', module["Name"], getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v), getVariableDefault(v), getVariableOptions(v))
+   codeString += consumeValue('js', module["Name"], getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v), True, getVariableOptions(v))
 
  if 'Internal Settings' in module:
   for v in module["Internal Settings"]:
-   varDefault = getVariableDefault(v)
-   if (varDefault == ''): varDefault = 'Korali Skip Default'
-   codeString += consumeValue('js', module["Name"], '["Internal"]' + getVariablePath(v),  getCXXVariableName(v["Name"]), getVariableType(v), varDefault, getVariableOptions(v))
+   codeString += consumeValue('js', module["Name"], getVariablePath(v),  getCXXVariableName(v["Name"]), getVariableType(v), False, getVariableOptions(v))
 
  if 'Termination Criteria' in module:
   for v in module["Termination Criteria"]:
-   codeString += consumeValue('js', module["Name"], '["Termination Criteria"]' + getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v), getVariableDefault(v), getVariableOptions(v))
+   codeString += consumeValue('js', module["Name"], '["Termination Criteria"]' + getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v), True, getVariableOptions(v))
 
  if 'Variables Configuration' in module:
   codeString += ' for (size_t i = 0; i < _k->_js["Variables"].size(); i++) { \n'
   for v in module["Variables Configuration"]:
-   codeString += consumeValue('_k->_js["Variables"][i]', module["Name"], getVariablePath(v), '_k->_variables[i]->' + getCXXVariableName(v["Name"]), getVariableType(v), getVariableDefault(v), getVariableOptions(v))
+   codeString += consumeValue('_k->_js["Variables"][i]', module["Name"], getVariablePath(v), '_k->_variables[i]->' + getCXXVariableName(v["Name"]), getVariableType(v), True, getVariableOptions(v))
   codeString += ' } \n'
 
  if 'Conditional Variables' in module:
@@ -203,7 +197,6 @@ def createSetConfiguration(module):
 
  codeString += ' _type = "' + module["Option Name"] + '";\n'
  codeString += ' if(korali::JsonInterface::isDefined(js, "[\'Type\']")) korali::JsonInterface::eraseValue(js, "[\'Type\']");\n'
-
  codeString += ' if(korali::JsonInterface::isEmpty(js) == false) korali::logError("Unrecognized settings for Korali module: ' + module["Name"] + ': \\n%s\\n", js.dump(2).c_str());\n'
  codeString += '} \n\n'
 
@@ -226,7 +219,7 @@ def createGetConfiguration(module):
 
  if 'Internal Settings' in module:
   for v in module["Internal Settings"]:
-   codeString += saveValue('js', '["Internal"]' + getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v))
+   codeString += saveValue('js', getVariablePath(v), getCXXVariableName(v["Name"]), getVariableType(v))
 
  if 'Variables Configuration' in module:
   codeString += ' for (size_t i = 0; i <  _k->_variables.size(); i++) { \n'
@@ -241,6 +234,38 @@ def createGetConfiguration(module):
 
  codeString += ' ' + module["Parent Class"] + '::getConfiguration(js);\n'
 
+ codeString += '} \n\n'
+
+ return codeString
+ 
+####################################################################
+
+def createApplyModuleDefaults(module):
+ codeString = 'void ' + module["Class"]  + '::applyModuleDefaults(nlohmann::json& js) \n{\n\n'
+
+ if 'Module Defaults' in module:
+   codeString += ' std::string defaultString = "' + json.dumps(module["Module Defaults"]).replace('"','\\"') + '";\n'
+   codeString += ' nlohmann::json defaultJs = nlohmann::json::parse(defaultString);\n'
+   codeString += ' JsonInterface::mergeJson(js, defaultJs); \n'
+
+ codeString += ' '  + module["Parent Class"] + '::applyModuleDefaults(js);\n'
+    
+ codeString += '} \n\n'
+
+ return codeString
+ 
+####################################################################
+
+def createApplyVariableDefaults(module):
+ codeString = 'void ' + module["Class"]  + '::applyVariableDefaults() \n{\n\n'
+
+ if 'Variable Defaults' in module:
+  codeString += ' std::string defaultString = "' + json.dumps(module["Variable Defaults"]).replace('"','\\"') + '";\n'
+  codeString += ' nlohmann::json defaultJs = nlohmann::json::parse(defaultString);\n'
+  codeString += ' for (size_t i = 0; i < _k->_js["Variables"].size(); i++) \n'
+  codeString += '  JsonInterface::mergeJson(_k->_js["Variables"][i], defaultJs); \n'
+
+ codeString += ' '  + module["Parent Class"] + '::applyVariableDefaults();\n'
  codeString += '} \n\n'
 
  return codeString
@@ -371,12 +396,14 @@ varDeclarationSet = set()
 # Detecting modules' json file
 for moduleDir, relDir, fileNames in os.walk(koraliDir):
  for fileName in fileNames:
-  if '.json' in fileName:
+  if '.config' in fileName:
    filePath = moduleDir + '/' + fileName;
    print('[Korali] Opening: ' + filePath + '...')
+   moduleFilename = fileName.replace('.config', '')
+   
+   # Loading Json configuration file
    with open(filePath, 'r') as file: moduleConfig = json.load(file)
-   moduleFilename = fileName.replace('.json', '')
-
+   
    # Processing Module information
    modulePath = os.path.relpath(moduleDir, koraliDir)
    moduleConfig["Name"] =  getModuleName(modulePath)
@@ -396,6 +423,8 @@ for moduleDir, relDir, fileNames in os.walk(koraliDir):
 
    moduleCodeString = createSetConfiguration(moduleConfig)
    moduleCodeString += createGetConfiguration(moduleConfig)
+   moduleCodeString += createApplyModuleDefaults(moduleConfig)
+   moduleCodeString += createApplyVariableDefaults(moduleConfig)
    moduleCodeString += createCheckTermination(moduleConfig)
 
    if 'Available Operations' in moduleConfig:
@@ -415,6 +444,8 @@ for moduleDir, relDir, fileNames in os.walk(koraliDir):
    functionOverrideString += ' bool checkTermination() override;\n'
    functionOverrideString += ' void getConfiguration(nlohmann::json& js) override;\n'
    functionOverrideString += ' void setConfiguration(nlohmann::json& js) override;\n'
+   functionOverrideString += ' void applyModuleDefaults(nlohmann::json& js) override;\n'
+   functionOverrideString += ' void applyVariableDefaults() override;\n'
 
    if 'Available Operations' in moduleConfig:
      functionOverrideString += ' bool runOperation(std::string, korali::Sample& sample) override;\n'
