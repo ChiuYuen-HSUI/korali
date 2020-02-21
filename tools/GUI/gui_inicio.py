@@ -2,8 +2,9 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk # if python.7 Tkinter. ttk is like the CSS.
 from tkinter.messagebox import showerror, showwarning, showinfo
-#import json
-import os
+import os, sys
+import json
+
 
 
 # ************ VARIABLES ******************
@@ -18,36 +19,90 @@ lightColor = '#00A3E0'
 extraColor = '#183A54'
 
 contador = 1
-varProblem = 'Problem'
-varSolver = 'Solver'
-varExperiment = 'Experiments'
-Names = ['Hello','B','C','D','E','F']
 
-Types = ['1','2','3','4','5','6']
+menus = []
 
-hierarchy = []
-configDB = [] # Lista de diccionarios.
-paths = []
-for (dirpath, dirnames,filenames) in os.walk('../../source'):
-    for filename in filenames:
-        if filename.endswith('.config'): 
-            configDB.append(filename) # os.sep.join([dirpath, filename])
-            path = os.getcwd()
-            hierarchy.append(path+dirpath)
-            #paths.append(dirpath)
-
-print(hierarchy)
-print('PATHS :')
-print(paths)
-
-tree = {} # Tree.
+mainPath = '../../source/problem'
 
 #############################################################
 ## ******************* FUNCTIONS ****************************
 
+def openFile(fileName):
+	print("Open File "+fileName+"!")
+
+def printConfig(configPath, rightFrame):
+    
+    for widget in rightFrame.winfo_children():
+        widget.destroy()
+    archivo = configPath
+    with open(archivo, 'r') as myfile:
+        data=myfile.read()
+
+    # parse file
+    obj = json.loads(data)
+    print(obj)
+    conf = obj['Variables Configuration']
+    
+    d = conf  
+    label=tk.Label(rightFrame, text="Set your own variables:  ", font="Arial 16")
+    label.grid(row=0, column=0,pady = 20,padx=20, columnspan = 6, sticky='W')
+
+    r = 1   
+    for exp in d:
+        for key in exp.keys():
+            if key=='Description':
+                label=tk.Label(rightFrame, text=key, font="Arial 12")
+                label.grid(row=r, column=0, sticky='W',pady=20)
+            else:
+                label=tk.Label(rightFrame, text=exp[key], font="Arial 12")
+                label.grid(row=r, column=0, sticky='W',columnspan=1)
+                entry = tk.Entry(rightFrame)
+                entry.grid(row=r, column = 1,sticky='W')
+            r += 1
+    #rightFrame.grid_columnconfigure(0, weight=1)
+    myfile.close()
+
+def splitPath(s):
+    dirs = []
+    dirName = ''
+    for i in s:
+        if i == os.path.sep:
+            dirs += [dirName]
+            dirName = ''
+        else:
+            dirName += i
+    if len(dirName) > 0:
+        dirs += [dirName]
+    return dirs
+
+def readDirs(filePath,configTreeDB):
+    dirs = splitPath(filePath)
+    levels=len(dirs)
+    sublevel = levels + 1
+    dirInfoDic={}
+    childrenList=[]
+    for (dirPath,dirNames,fileNames) in os.walk(filePath):
+        if dirPath == filePath:
+            for fileName in fileNames:
+                if fileName.endswith('.config'):
+                    dirName = dirs[levels-1]
+                    configTreeDB[dirName] = dirInfoDic
+                    dirInfoDic['config'] = filePath + os.path.sep + fileName
+                    dirInfoDic['children'] = childrenList
+            continue
+        dirs=splitPath(dirPath)
+        levels=len(dirs)
+        if levels > sublevel:
+            del dirNames[:]
+            continue
+        readDirs(dirPath, configTreeDB)
+        dirName = dirs[levels - 1]
+        childrenList += [dirName]
+
+
 # ******************* TUTORIAL ******************
 def tutorial():
-
+    
     def page2():
         tut.destroy()
         tut2 = tk.Tk()
@@ -89,35 +144,44 @@ def tutorial():
 
 def popupmsgwarning(text):
     Tk().withdraw()
-    #showerror(title = "Error", message = text)
     showwarning(title = 'Error',message=text)
-    #showinfo(title='Error',message=text)
 
+def crearMenu(padre,directorio):
+    global menus
+    if directorio not in menus:
+        subMenu = Menu(padre)
+        padre.add_cascade(label=directorio, menu = subMenu)
+        dirInfo=configTreeDB[directorio]
+        configPath=dirInfo['config']
+        if configPath != "NULL":
+            dirs=splitPath(configPath)
+            subMenu.add_command(label = dirs[len(dirs)-1], command = lambda : printConfig(configPath,rightFrame))
+        children=dirInfo['children']
+        for child in children:
+            crearMenu(subMenu,child)
 
-def printConfig(config):
-    
-    pass
+    menus.append(directorio)
 
-    
-            
 ## Crea los tabs de uno en uno
 def crearTab(totalTabs,cont):
     global contador
+    global menus
+    
     if contador < 6:
-        # NEW TAB:
-        tab1 = tk.Frame(totalTabs)
-        totalTabs.add(tab1, text = "Experiment "+str(contador))
-        leftFrame = ttk.Frame(tab1)
+        ## Create Tab and frames inside:
+        tab = tk.Frame(totalTabs)
+        totalTabs.add(tab, text = 'Experiment '+str(cont))
+        leftFrame = ttk.Frame(tab)
         leftFrame.grid(column = 0, row = 0, sticky = 'nsew',)
-        sep = tk.Frame(tab1, width=4, bd=2, relief='sunken')
+        sep = tk.Frame(tab, width=4, bd=2, relief='sunken')
         sep.grid(column = 1,row = 0, sticky = 'ns')
-        rightFrame = ttk.Frame(tab1)
+        rightFrame = ttk.Frame(tab)
         rightFrame.grid(column = 2, row = 0, sticky = 'nsew')
-
+        ##
         # Make frames same width:
-        tab1.grid_columnconfigure(0, weight=1, uniform="group1")
-        tab1.grid_columnconfigure(2, weight=1, uniform="group1")
-      
+        tab.grid_columnconfigure(0, weight=1, uniform="group1")
+        tab.grid_columnconfigure(2, weight=1, uniform="group1")
+
         # LEFT SIDE OF TAB1:
 
         variablesname=tk.Label(leftFrame, text="Variables", font="Arial 20")
@@ -126,118 +190,27 @@ def crearTab(totalTabs,cont):
 
         ## CASCADE:
 
-        Problem = tk.Menubutton(leftFrame, text = varProblem,indicatoron=True,borderwidth=1, relief="raised", width=20, border=3)
-        Solver = tk.Menubutton(leftFrame, text = varSolver,indicatoron=True,borderwidth=1, relief="raised", width=20, border=3)
-        Experiment = tk.Menubutton(leftFrame, text = varExperiment,indicatoron=True,borderwidth=1, relief="raised", width=20, border=3)
-        mainProblemMenu = tk.Menu(Problem, tearoff=False)
-        mainSolverMenu = tk.Menu(Solver, tearoff=False)
-        mainExperimentMenu = tk.Menu(Experiment, tearoff=False)
-        mainExperimentMenu.add_radiobutton(value=0, label='Experiment.config')
+        dirs = splitPath(mainPath)
 
-        #
-        Problem.configure(menu=mainProblemMenu)
-        Solver.configure(menu=mainSolverMenu)
-        Experiment.configure(menu=mainExperimentMenu)
-        ##
-        evalMenu = tk.Menu(mainProblemMenu, tearoff=False)
-        mainProblemMenu.add_cascade(label='Evaluation', menu=evalMenu)        
-        ###
-        directMenu = tk.Menu(evalMenu, tearoff=False)
-        evalMenu.add_cascade(label='Direct', menu=directMenu)
-        directMenu.add_radiobutton(value=0, label='Direct.config', command = lambda : printConfig('path'))
-        ####
-        basicMenu = tk.Menu(directMenu, tearoff=False)
-        directMenu.add_cascade(label='Basic', menu=basicMenu)
-        basicMenu.add_radiobutton(value=0, label='Basic.config')
-        ####
-        gradientMenu = tk.Menu(directMenu, tearoff=False)
-        directMenu.add_cascade(label='Gradient', menu=gradientMenu)
-        gradientMenu.add_radiobutton(value=1, label='Gradient.config')
-        ###
-        gaussProcessMenu = tk.Menu(evalMenu, tearoff=False)
-        evalMenu.add_cascade(label='GaussianProcess', menu=gaussProcessMenu)
-        gaussProcessMenu.add_radiobutton(value=0, label = 'GaussianProcess.config')
-        ###
-        bayesMenu = tk.Menu(evalMenu, tearoff=False)
-        evalMenu.add_cascade(label='Bayessian', menu=bayesMenu)
-        bayesMenu.add_radiobutton(value = 0, label ='Bayessian.config')
-        ####
-        hierMenu = tk.Menu(bayesMenu, tearoff=False)
-        bayesMenu.add_cascade(label='Hierarchical', menu=hierMenu)
-        hierMenu.add_radiobutton(value= 0, label='Theta.config')
-        hierMenu.add_radiobutton(value= 1, label='ThetaNew.config')
-        ##
-        execMenu = tk.Menu(mainProblemMenu, tearoff=False)
-        mainProblemMenu.add_cascade(label='Execution', menu=execMenu)
-        ###
-        gaussMenu = tk.Menu(execMenu, tearoff=False)
-        execMenu.add_cascade(label='Gaussian', menu=gaussMenu)
-        gaussMenu.add_radiobutton(value=0, label='Gaussian.config', command = lambda : printConfig('path'))
-        ###
-        modelMenu = tk.Menu(execMenu, tearoff=False)
-        execMenu.add_cascade(label='Model', menu=modelMenu)
-        modelMenu.add_radiobutton(value=1, label='Model.config')
+        menuButton = tk.Menubutton(leftFrame, text =dirs[2] , indicatoron=True, borderwidth = 1, relief='raised', width=20, border=3)
+        menuPadre = tk.Menu(menuButton, tearoff=False)
+        menuButton.configure(menu=menuPadre)
 
-        ### SOLVER CASCADE ###
-        #
-        executorMenu = tk.Menu(mainSolverMenu, tearoff=False)
-        mainSolverMenu.add_cascade(label='Executor', menu=executorMenu)
-        executorMenu.add_radiobutton(value=0,label = 'executor.config')
-        #
-        optimizerMenu = tk.Menu(mainSolverMenu, tearoff=False)
-        mainSolverMenu.add_cascade(label='Optimizer', menu=optimizerMenu)
-        ##
-        cmaesMenu = tk.Menu(optimizerMenu, tearoff=False)
-        optimizerMenu.add_cascade(label='CMAES', menu = cmaesMenu)
-        cmaesMenu.add_radiobutton(value=0,label='CMAES.config')
-        ##
-        deaMenu = tk.Menu(optimizerMenu, tearoff=False)
-        optimizerMenu.add_cascade(label='DEA', menu = deaMenu)
-        deaMenu.add_radiobutton(value=0,label='DEA.config')
-        ##
-        LMCMAESMenu = tk.Menu(optimizerMenu, tearoff=False)
-        optimizerMenu.add_cascade(label='LMCMAES', menu = LMCMAESMenu)
-        LMCMAESMenu.add_radiobutton(value=0,label='LMCMAES.config')
-        ##
-        rpropMenu = tk.Menu(optimizerMenu, tearoff = False)
-        optimizerMenu.add_cascade(label='Rprop', menu = rpropMenu)
-        rpropMenu.add_radiobutton(value=0, label = 'Rprop.config')
-        #
-        samplerMenu = tk.Menu(mainSolverMenu, tearoff=False)
-        mainSolverMenu.add_cascade(label='Sampler', menu=samplerMenu)
-        ##
-        mcmcMenu = tk.Menu(samplerMenu, tearoff = False)
-        samplerMenu.add_cascade(label='MCMC', menu = mcmcMenu)
-        mcmcMenu.add_radiobutton(value= 0, label = 'MCMC.config')
-        ##
-        tmcmcMenu = tk.Menu(samplerMenu, tearoff = False)
-        samplerMenu.add_cascade(label='TMCMC', menu = tmcmcMenu)
-        tmcmcMenu.add_radiobutton(value= 0, label = 'TMCMC.config')
-        #
-        sampleMenu = tk.Menu(mainExperimentMenu, tearoff = False)
-        mainExperimentMenu.add_cascade(label='Sample', menu=sampleMenu)
-        sampleMenu.add_radiobutton(value=0,label='Sample.config')
-        #
-        variableMenu = tk.Menu(mainExperimentMenu, tearoff = False)
-        mainExperimentMenu.add_cascade(label='Variable', menu = variableMenu)
-        variableMenu.add_radiobutton(value=0, label = 'variable.hpp')
+        for directorio in configTreeDB.keys():
+            crearMenu(menuPadre,directorio)
 
-    
+        menus.clear() # Avoid 
 
         
-        
-       
-
-        
-        Problem.grid(row=8, column = 0, pady=10, padx=10)
-        Solver.grid(row=8, column = 1, pady=10, padx=10)
-        Experiment.grid(row=8, column = 2, pady=10, padx=10)
+        menuButton.grid(row=8, column = 0, pady=10, padx=10)
 
         contador += 1
     else:
         popupmsgwarning('Number of experiments exceeded!')
     
+## ****************** END OF FUNCTIONS **********************
 
+        
 #############################################################
 ## ******************* CLASSES ******************************
 
@@ -294,13 +267,14 @@ class KORALI(tk.Tk): #Inherited tk.tk
 
 
 
-
+configTreeDB = {}
+readDirs(mainPath, configTreeDB)
+print(configTreeDB)
 
 app = KORALI()
 app.geometry("1680x720") # Size of our application.
 app.minsize("1360","400")
 app.mainloop()
-
 
 
 
